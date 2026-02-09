@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tab Checklist</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: rgba(30, 30, 30, 0.95);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 16px;
+            user-select: none;
+        }
+
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #444;
+        }
+
+        .main-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .sync-status {
+            font-size: 10px;
+            color: #666;
+        }
+
+        .sync-status.connected {
+            color: #00b894;
+        }
+
+        .sync-status.disconnected {
+            color: #ff6b6b;
+        }
+
+        .columns-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            min-height: calc(100vh - 80px);
+        }
+
+        .column {
+            background: rgba(40, 40, 40, 0.8);
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .column-header {
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .column:nth-child(1) .column-header { border-color: #00b894; }
+        .column:nth-child(2) .column-header { border-color: #ff6b6b; }
+        .column:nth-child(3) .column-header { border-color: #4ecdc4; }
+        .column:nth-child(4) .column-header { border-color: #ffe66d; }
+        .column:nth-child(5) .column-header { border-color: #a29bfe; }
+
+        .column-count {
+            font-size: 11px;
+            color: #888;
+            font-weight: normal;
+        }
+
+        .add-form {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .add-input {
+            flex: 1;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 6px 8px;
+            color: #fff;
+            font-size: 12px;
+            min-width: 0;
+        }
+
+        .add-input:focus {
+            outline: none;
+            border-color: #007aff;
+        }
+
+        .add-input::placeholder {
+            color: #666;
+        }
+
+        .add-btn {
+            background: #007aff;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: #fff;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+
+        .add-btn:hover {
+            background: #0066dd;
+        }
+
+        .checklist {
+            list-style: none;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 6px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .checklist-item:last-child {
+            border-bottom: none;
+        }
+
+        .checklist-item.completed .item-text {
+            text-decoration: line-through;
+            color: #666;
+        }
+
+        .checklist-item.completed .item-text a {
+            color: #666;
+        }
+
+        .checkbox {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.15s ease;
+            margin-top: 1px;
+        }
+
+        .checkbox:hover {
+            border-color: #007aff;
+        }
+
+        .checklist-item.completed .checkbox {
+            background: #007aff;
+            border-color: #007aff;
+        }
+
+        .checklist-item.completed .checkbox::after {
+            content: '✓';
+            color: #fff;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .item-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .item-text {
+            font-size: 12px;
+            line-height: 1.4;
+            word-break: break-word;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .item-text a {
+            color: #007aff;
+            text-decoration: none;
+        }
+
+        .item-text a:hover {
+            text-decoration: underline;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .checklist-item:hover .item-actions {
+            opacity: 1;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 10px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .action-btn:hover {
+            background: #444;
+            color: #fff;
+        }
+
+        .action-btn.delete:hover {
+            color: #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #555;
+            font-size: 11px;
+            padding: 20px 5px;
+            font-style: italic;
+        }
+
+        .clear-btn {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 10px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+
+        .clear-btn:hover {
+            background: #444;
+            color: #fff;
+        }
+
+        .column-footer {
+            margin-top: auto;
+            padding-top: 8px;
+            border-top: 1px solid #333;
+            text-align: center;
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            width: 400px;
+            max-width: 90vw;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 16px;
+        }
+
+        .modal-field {
+            margin-bottom: 12px;
+        }
+
+        .modal-field label {
+            display: block;
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .modal-field input {
+            width: 100%;
+            background: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 8px 10px;
+            color: #fff;
+            font-size: 13px;
+        }
+
+        .modal-field input:focus {
+            outline: none;
+            border-color: #007aff;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .modal-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+        }
+
+        .modal-btn.cancel {
+            background: #444;
+            color: #fff;
+        }
+
+        .modal-btn.cancel:hover {
+            background: #555;
+        }
+
+        .modal-btn.save {
+            background: #007aff;
+            color: #fff;
+        }
+
+        .modal-btn.save:hover {
+            background: #0066dd;
+        }
+
+        .modal-btn.remove {
+            background: #ff4444;
+            color: #fff;
+            margin-right: auto;
+        }
+
+        .modal-btn.remove:hover {
+            background: #dd3333;
+        }
+
+        /* Scrollbar styling */
+        .checklist::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .checklist::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .checklist::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 3px;
+        }
+
+        .checklist::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-header">
+        <h1>Tab Checklist</h1>
+        <span class="sync-status" id="syncStatus">Connecting...</span>
+    </div>
+
+    <div class="columns-container" id="columns"></div>
+
+    <!-- Edit Modal -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <h3>Edit Item</h3>
+            <div class="modal-field">
+                <label>Text</label>
+                <input type="text" id="editText" placeholder="Item text...">
+            </div>
+            <div class="modal-field">
+                <label>Link URL (optional)</label>
+                <input type="url" id="editUrl" placeholder="https://...">
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn remove" id="removeLink" style="display: none;">Remove Link</button>
+                <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+                <button class="modal-btn save" onclick="saveEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // CUSTOMIZE YOUR COLUMNS HERE
+        // Change the 'name' to whatever you want displayed
+        // Change 'color' to any hex color for the header underline
+        // Keep 'id' as a simple lowercase identifier (no spaces)
+        // ============================================================
+        const COLUMNS = [
+            { id: 'priority', name: 'PRIORITY', color: '#00b894' },
+            { id: 'work', name: 'WORK', color: '#ff6b6b' },
+            { id: 'personal', name: 'PERSONAL', color: '#4ecdc4' },
+            { id: 'reading', name: 'READING', color: '#ffe66d' },
+            { id: 'other', name: 'OTHER', color: '#a29bfe' }
+        ];
+
+        const SERVER_URL = 'http://127.0.0.1:17432';
+        let data = {};
+        let serverConnected = false;
+        let currentEdit = null;
+
+        function initData() {
+            COLUMNS.forEach(col => {
+                if (!data[col.id]) {
+                    data[col.id] = [];
+                }
+            });
+        }
+
+        function updateSyncStatus(connected) {
+            const el = document.getElementById('syncStatus');
+            serverConnected = connected;
+            if (connected) {
+                el.textContent = 'Synced to desktop';
+                el.className = 'sync-status connected';
+            } else {
+                el.textContent = 'Local only (start server for desktop sync)';
+                el.className = 'sync-status disconnected';
+            }
+        }
+
+        async function loadData() {
+            try {
+                const response = await fetch(`${SERVER_URL}/data`);
+                if (response.ok) {
+                    data = await response.json();
+                    updateSyncStatus(true);
+                    initData();
+                    render();
+                    return;
+                }
+            } catch (e) {}
+
+            updateSyncStatus(false);
+            try {
+                const saved = localStorage.getItem('tabChecklistColumns');
+                if (saved) {
+                    data = JSON.parse(saved);
+                }
+            } catch (e) {
+                data = {};
+            }
+            initData();
+            render();
+        }
+
+        async function saveData() {
+            const jsonData = JSON.stringify(data);
+
+            try {
+                localStorage.setItem('tabChecklistColumns', jsonData);
+            } catch (e) {
+                console.error('Failed to save to localStorage:', e);
+            }
+
+            try {
+                const response = await fetch(`${SERVER_URL}/data`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: jsonData
+                });
+                updateSyncStatus(response.ok);
+            } catch (e) {
+                updateSyncStatus(false);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function renderItemText(item) {
+            const text = escapeHtml(item.text);
+            if (item.url) {
+                return `<a href="${escapeHtml(item.url)}" target="_blank" onclick="event.stopPropagation()">${text}</a>`;
+            }
+            return text;
+        }
+
+        function render() {
+            const container = document.getElementById('columns');
+
+            container.innerHTML = COLUMNS.map(col => {
+                const items = data[col.id] || [];
+                const activeCount = items.filter(i => !i.completed).length;
+                const totalCount = items.length;
+
+                return `
+                    <div class="column" data-column="${col.id}">
+                        <div class="column-header">
+                            <span>${col.name}</span>
+                            <span class="column-count">${activeCount}/${totalCount}</span>
+                        </div>
+
+                        <form class="add-form" onsubmit="addItem(event, '${col.id}')">
+                            <input type="text" class="add-input" placeholder="Add..." autocomplete="off">
+                            <button type="submit" class="add-btn">+</button>
+                        </form>
+
+                        <ul class="checklist">
+                            ${items.length === 0 ?
+                                '<div class="empty-state">No items yet</div>' :
+                                items.map((item, index) => `
+                                    <li class="checklist-item ${item.completed ? 'completed' : ''}" data-index="${index}">
+                                        <div class="checkbox" onclick="toggleItem('${col.id}', ${index})"></div>
+                                        <div class="item-content">
+                                            <span class="item-text">${renderItemText(item)}</span>
+                                            <div class="item-actions">
+                                                <button class="action-btn" onclick="openEditModal('${col.id}', ${index})">edit</button>
+                                                <button class="action-btn delete" onclick="deleteItem('${col.id}', ${index})">delete</button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                `).join('')
+                            }
+                        </ul>
+
+                        ${items.some(i => i.completed) ? `
+                            <div class="column-footer">
+                                <button class="clear-btn" onclick="clearCompleted('${col.id}')">Clear done</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addItem(e, columnId) {
+            e.preventDefault();
+            const form = e.target;
+            const input = form.querySelector('.add-input');
+            const text = input.value.trim();
+
+            if (text) {
+                data[columnId].unshift({ text, completed: false, url: null, created: Date.now() });
+                saveData();
+                render();
+
+                const column = document.querySelector(`[data-column="${columnId}"]`);
+                const newInput = column.querySelector('.add-input');
+                newInput.focus();
+            }
+        }
+
+        function toggleItem(columnId, index) {
+            data[columnId][index].completed = !data[columnId][index].completed;
+            saveData();
+            render();
+        }
+
+        function deleteItem(columnId, index) {
+            data[columnId].splice(index, 1);
+            saveData();
+            render();
+        }
+
+        function clearCompleted(columnId) {
+            data[columnId] = data[columnId].filter(i => !i.completed);
+            saveData();
+            render();
+        }
+
+        // Modal functions
+        function openEditModal(columnId, index) {
+            currentEdit = { columnId, index };
+            const item = data[columnId][index];
+
+            document.getElementById('editText').value = item.text;
+            document.getElementById('editUrl').value = item.url || '';
+            document.getElementById('removeLink').style.display = item.url ? 'block' : 'none';
+            document.getElementById('editModal').classList.add('active');
+            document.getElementById('editText').focus();
+        }
+
+        function closeModal() {
+            currentEdit = null;
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        function saveEdit() {
+            if (!currentEdit) return;
+
+            const text = document.getElementById('editText').value.trim();
+            const url = document.getElementById('editUrl').value.trim();
+
+            if (text) {
+                data[currentEdit.columnId][currentEdit.index].text = text;
+                data[currentEdit.columnId][currentEdit.index].url = url || null;
+                saveData();
+                render();
+            }
+
+            closeModal();
+        }
+
+        document.getElementById('removeLink').addEventListener('click', () => {
+            document.getElementById('editUrl').value = '';
+            document.getElementById('removeLink').style.display = 'none';
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+            if (e.key === 'Enter' && currentEdit && document.activeElement.tagName === 'INPUT') {
+                e.preventDefault();
+                saveEdit();
+            }
+        });
+
+        document.getElementById('editModal').addEventListener('click', (e) => {
+            if (e.target.id === 'editModal') closeModal();
+        });
+
+        // Initialize
+        loadData();
+
+        // Periodically check for external changes
+        setInterval(async () => {
+            if (serverConnected && !currentEdit) {
+                try {
+                    const response = await fetch(`${SERVER_URL}/data`);
+                    if (response.ok) {
+                        const newData = await response.json();
+                        if (JSON.stringify(newData) !== JSON.stringify(data)) {
+                            data = newData;
+                            initData();
+                            render();
+                        }
+                    }
+                } catch (e) {
+                    updateSyncStatus(false);
+                }
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
